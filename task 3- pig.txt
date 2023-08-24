@@ -1,0 +1,15 @@
+--PIG--
+# Cleaning of data using Pig
+grunt> genData =FOREACH lData GENERATE sno, reviewerID, asin, reviewerName, helpful, reviewText, overall, summary, category;
+
+# Checking nulls in the data
+grunt> filternotnull = FILTER genData by NOT ((sno IS NULL) OR (reviewerID IS NULL) OR (asin IS NULL) OR (reviewerName IS NULL) OR (helpful IS NULL) OR (reviewText IS NULL) OR (overall IS NULL) OR (summary IS NULL) OR (category IS NULL));
+
+# Checking the blank values 
+grunt> filternotblank = FILTER filternotnull by NOT ((sno =='') OR (reviewerID =='') OR (asin =='') OR (reviewerName =='') OR (helpful =='') OR (reviewText =='') OR (overall =='') OR (summary =='') OR (category ==''));
+
+# Checking “N/A” values
+grunt> filterna = FILTER filternotblank by NOT ((sno =='N/A') OR (reviewerID =='N/A') OR (asin =='N/A') OR (reviewerName =='N/A') OR (helpful =='N/A') OR (reviewText =='N/A') OR (overall =='N/A') OR (summary =='N/A') OR (category  =='N/A'));
+
+# Storing data from pig into /CleanData
+grunt> STORE filterna INTO '/CleanData' USING org.apache.pig.piggybank.storage.CSVExcelStorage(',','YES_MULTILINE');

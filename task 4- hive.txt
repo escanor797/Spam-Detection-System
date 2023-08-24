@@ -1,0 +1,35 @@
+--Hive--
+
+# Created table electronics
+hive> CREATE external TABLE IF not exists electronics(sno string, custID string, asin string, custName string, helpful string,  reviewText string, overall int, summary string, category string) 
+ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde'
+WITH SERDEPROPERTIES ( 
+"separatorChar" = ",", 
+"quoteChar" = "\"") 
+LOCATION '/home/rohit_shinde2/data_input.csv'
+tblproperties("skip.header.line.count"="1");
+
+# Loaded the data into it
+hive> Load data local inpath '/home/rohit_shinde2/data_input.csv' overwrite into table electronics;
+
+# Created bag of words table bag2:
+hive> CREATE external TABLE IF not exists bag2 (bag string) ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' WITH SERDEPROPERTIES ("separatorChar"= ",", "quoteChar" = "\"") LOCATION '/home/rohit_shinde2/bag2.csv' tblproperties("skip.header.line.count"="1");
+
+# Loaded data in bag2 table:
+hive> Load data local inpath '/home/rohit_shinde2/bag2.csv' overwrite into table bag2;
+
+# Creating table wordcount:
+hive> create table wordcount as select word from (select explode (split(LCASE(REGEXP_REPLACE(summary,'[\\p{Punct},\\p{Cntrl}]','')),' ')) as word from db.electronics) words;
+
+# Created table counter:
+hive> create table counter as select word, COUNT(*) AS count FROM (SELECT * FROM wordcount LEFT OUTER JOIN bag2 on (wordcount.word = bag2.bag) WHERE bag IS NULL) removestopwords GROUP BY word ORDER BY count DESC, word ASC;
+
+# Create separate table spam with selected bag of words
+hive> CREATE TABLE db.spam AS select sno,custID,asin,custname,helpful,reviewtext,overall,summary,category from db.electronics where
+(LOWER(summary) LIKE '%excellent%' OR LOWER(summary) LIKE '%awesome%' OR LOWER(summary) LIKE '%speakers%' OR LOWER(summary) LIKE '%works%' OR LOWER(summary) LIKE '%product%' OR LOWER(summary) LIKE '%PRICE% OR
+OR UPPER(summary) LIKE '%EXCELLENT%' OR UPPER(summary) LIKE '%AWESOME%' OR UPPER(summary) LIKE '%SPEAKERS%') or UPPER(summary) LIKE '%WORKS%') OR  UPPER(summary) LIKE '%PRODUCT%') OR  UPPER(summary) LIKE '%PRICE%'
+AND overall in ('4','5');
+
+# Created separate table ham
+CREATE TABLE db.ham AS select sno,custID,asin,custname,helpful,reviewtext,overall,summary,category from db.electronics where sno not in (select sno from db.spam) AND overall in ('1','2','3');
+
